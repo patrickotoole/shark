@@ -31,6 +31,7 @@ import org.apache.hadoop.hive.serde2.{Deserializer, Serializer}
 import org.apache.hadoop.hive.serde2.columnar.{ColumnarStruct => HiveColumnarStruct}
 import org.apache.hadoop.hive.serde2.`lazy`.LazyStruct
 import org.apache.hadoop.hive.serde2.objectinspector.{StructObjectInspector, ObjectInspectorConverters}
+import org.apache.hadoop.hive.serde2.avro.AvroSerDe
 import org.apache.hadoop.io.Writable
 import org.apache.hadoop.mapred.{FileInputFormat, InputFormat, JobConf}
 
@@ -205,6 +206,8 @@ class HadoopTableReader(@transient _tableDesc: TableDesc, @transient _localHConf
             // partitions, so we serialize and deserialize again to make it lazy.
             if (tableSerDe.isInstanceOf[OrcSerde]) {
               convertedRow
+            } else if (tableSerDe.isInstanceOf[AvroSerDe]) {
+              tableSerDe.deserialize(value)
             } else {
               convertedRow match {
                 case _: LazyStruct => convertedRow

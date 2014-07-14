@@ -245,7 +245,7 @@ class HadoopTableReader(@transient _tableDesc: TableDesc, @transient _localHConf
   private def applyFilterIfNeeded(path: Path, filterOpt: Option[PathFilter]): String = {
     filterOpt match {
       case Some(filter) => {
-        val fs = path.getFileSystem(_localHConf)
+        val fs = path.getFileSystem(hiveConf)
         val filteredFiles = fs.listStatus(path, filter).map(_.getPath.toString)
         filteredFiles.mkString(",")
       }

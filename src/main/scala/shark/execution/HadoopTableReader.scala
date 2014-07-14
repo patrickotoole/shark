@@ -31,7 +31,7 @@ import org.apache.hadoop.hive.serde2.{Deserializer, Serializer}
 import org.apache.hadoop.hive.serde2.columnar.{ColumnarStruct => HiveColumnarStruct}
 import org.apache.hadoop.hive.serde2.`lazy`.LazyStruct
 import org.apache.hadoop.hive.serde2.objectinspector.{StructObjectInspector, ObjectInspectorConverters}
-import org.apache.hadoop.hive.serde2.avro.AvroSerDe
+import org.apache.hadoop.hive.serde2.{RegexSerDe}
 import org.apache.hadoop.io.Writable
 import org.apache.hadoop.mapred.{FileInputFormat, InputFormat, JobConf}
 
@@ -199,22 +199,28 @@ class HadoopTableReader(@transient _tableDesc: TableDesc, @transient _localHConf
           val deserializedRow = {
 
             // If partition schema does not match table schema, update the row to match
-            val convertedRow = partTblObjectInspectorConverter.convert(partSerDe.deserialize(value))
+            val deserialized = partSerDe.deserialize(value)
+            val convertedRow = partTblObjectInspectorConverter.convert(deserialized)
 
             // If conversion was performed, convertedRow will be a standard Object, but if
             // conversion wasn't necessary, it will still be lazy. We can't have both across
             // partitions, so we serialize and deserialize again to make it lazy.
-            if (tableSerDe.isInstanceOf[OrcSerde]) {
-              convertedRow
-            } else if (tableSerDe.isInstanceOf[AvroSerDe]) {
-              tableSerDe.deserialize(value)
+            if (deserialized == convertedRow) {
+              deserialized
             } else {
-              convertedRow match {
-                case _: LazyStruct => convertedRow
-                case _: HiveColumnarStruct => convertedRow
-                case _ => tableSerDe.deserialize(
-                  tableSerDe.asInstanceOf[Serializer].serialize(
-                    convertedRow, tblConvertedOI))
+              
+              if (tableSerDe.isInstanceOf[OrcSerde]) {
+                convertedRow
+              } else if (tableSerDe.isInstanceOf[RegexSerDe]) {
+                deserialized
+              } else {
+                convertedRow match {
+                  case _: LazyStruct => convertedRow
+                  case _: HiveColumnarStruct => convertedRow
+                  case _ => tableSerDe.deserialize(
+                    tableSerDe.asInstanceOf[Serializer].serialize(
+                      convertedRow, tblConvertedOI))
+                }
               }
             }
           }
